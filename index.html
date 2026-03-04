@@ -721,6 +721,153 @@
     display: none;
   }
   .refining-indicator.active { display: inline; }
+
+  /* ── SHOT STUCK ── */
+  .btn-stuck {
+    background: none;
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 5px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .btn-stuck:hover { background: var(--red); color: #000; }
+  .btn-stuck:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stuck-zone {
+    display: none;
+    background: rgba(255,51,51,0.04);
+    border: 1px solid rgba(255,51,51,0.25);
+    padding: 20px;
+    gap: 16px;
+    flex-direction: column;
+    margin-top: 12px;
+  }
+  .stuck-zone.open { display: flex; }
+
+  .stuck-header {
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .stuck-indicator {
+    font-size: 9px;
+    color: var(--red);
+    letter-spacing: 1px;
+    display: none;
+    animation: pulse 1s infinite;
+  }
+  .stuck-indicator.active { display: inline; }
+
+  .stuck-diagnosis {
+    background: var(--bg);
+    border-left: 2px solid var(--red);
+    padding: 12px 16px;
+  }
+  .stuck-diagnosis-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stuck-diagnosis-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gray);
+    line-height: 1.7;
+  }
+
+  .stuck-alt {
+    background: var(--bg);
+    border-left: 2px solid var(--orange);
+    padding: 12px 16px;
+  }
+  .stuck-alt-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--orange);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stuck-alt-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .stuck-prompts { display: flex; flex-direction: column; gap: 10px; }
+
+  .stuck-prompt-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 14px;
+  }
+  .stuck-prompt-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stuck-prompt-label.t2i { color: var(--green); }
+  .stuck-prompt-label.i2v { color: var(--orange); }
+
+  .stuck-prompt-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .stuck-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .btn-stuck-apply {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 8px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+  }
+  .btn-stuck-apply:hover { opacity: 0.85; }
+
+  .btn-stuck-regen {
+    background: none;
+    border: 1px solid var(--gray2);
+    color: var(--gray);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 8px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .btn-stuck-regen:hover { border-color: var(--red); color: var(--red); }
 </style>
 </head>
 <body>
@@ -1262,6 +1409,40 @@ function renderOutput(result) {
             <button class="btn-apply-refine" onclick="applyRefine(${shot.shot_number}, 'i2v', this)">APPLY REFINE</button>
           </div>
         </div>
+        <div style="display:flex; justify-content:flex-end; padding-top:4px;">
+          <button class="btn-stuck" onclick="toggleStuck(${shot.shot_number})">⚠ SHOT STUCK?</button>
+          <span class="stuck-indicator" id="stuck-indicator-${shot.shot_number}">DIAGNOSING...</span>
+        </div>
+        <div class="stuck-zone" id="stuck-zone-${shot.shot_number}">
+          <div class="stuck-header">
+            // SHOT ${String(shot.shot_number).padStart(2,'0')} — ALTERNATIVE
+          </div>
+          <div class="stuck-diagnosis" id="stuck-diagnosis-${shot.shot_number}" style="display:none;">
+            <div class="stuck-diagnosis-label">DIAGNOSIS</div>
+            <div class="stuck-diagnosis-text" id="stuck-diagnosis-text-${shot.shot_number}"></div>
+          </div>
+          <div class="stuck-alt" id="stuck-alt-${shot.shot_number}" style="display:none;">
+            <div class="stuck-alt-label">ALTERNATIVE</div>
+            <div class="stuck-alt-text" id="stuck-alt-text-${shot.shot_number}"></div>
+          </div>
+          <div class="stuck-prompts" id="stuck-prompts-${shot.shot_number}" style="display:none;">
+            <div class="stuck-prompt-block">
+              <div class="stuck-prompt-label t2i">T2I ALTERNATIVE<button class="btn-copy" style="font-size:8px;padding:3px 8px;" onclick="copyText(document.getElementById('stuck-t2i-${shot.shot_number}').textContent)">COPY</button></div>
+              <div class="stuck-prompt-text" id="stuck-t2i-${shot.shot_number}"></div>
+            </div>
+            <div class="stuck-prompt-block">
+              <div class="stuck-prompt-label i2v">I2V ALTERNATIVE<button class="btn-copy" style="font-size:8px;padding:3px 8px;" onclick="copyText(document.getElementById('stuck-i2v-${shot.shot_number}').textContent)">COPY</button></div>
+              <div class="stuck-prompt-text" id="stuck-i2v-${shot.shot_number}"></div>
+            </div>
+          </div>
+          <div class="stuck-actions" id="stuck-actions-${shot.shot_number}" style="display:none;">
+            <button class="btn-stuck-regen" onclick="runStuck(${shot.shot_number})">REGENERATE ↻</button>
+            <button class="btn-stuck-apply" onclick="applyStuck(${shot.shot_number})">APPLY TO SHOT</button>
+          </div>
+          <div id="stuck-empty-${shot.shot_number}" style="text-align:center;padding:20px 0;">
+            <button class="btn-stuck-apply" onclick="runStuck(${shot.shot_number})">⚠ DIAGNOSE & GENERATE ALTERNATIVE</button>
+          </div>
+        </div>
       </div>`;
     shotCards.appendChild(card);
   });
@@ -1451,6 +1632,138 @@ function copyAllI2V() {
   if (!mutationResult) return;
   const all = mutationResult.shots.map(s => `// SHOT ${String(s.shot_number).padStart(2,'0')}\n${s.i2v_prompt}`).join('\n\n');
   navigator.clipboard.writeText(all).then(() => showToast('ALL I2V COPIED ✓'));
+}
+
+// ── SHOT STUCK ──
+function toggleStuck(shotNum) {
+  const zone = document.getElementById(`stuck-zone-${shotNum}`);
+  zone.classList.toggle('open');
+}
+
+async function runStuck(shotNum) {
+  const claudeKey = localStorage.getItem('claude_key');
+  if (!claudeKey) { showToast('API KEY REQUIRED'); return; }
+
+  const shot = mutationResult?.shots?.find(s => s.shot_number == shotNum);
+  if (!shot) return;
+
+  const indicator = document.getElementById(`stuck-indicator-${shotNum}`);
+  const emptyEl = document.getElementById(`stuck-empty-${shotNum}`);
+  const diagnosisEl = document.getElementById(`stuck-diagnosis-${shotNum}`);
+  const altEl = document.getElementById(`stuck-alt-${shotNum}`);
+  const promptsEl = document.getElementById(`stuck-prompts-${shotNum}`);
+  const actionsEl = document.getElementById(`stuck-actions-${shotNum}`);
+
+  // 로딩 상태
+  indicator.classList.add('active');
+  emptyEl.style.display = 'none';
+  diagnosisEl.style.display = 'none';
+  altEl.style.display = 'none';
+  promptsEl.style.display = 'none';
+  actionsEl.style.display = 'none';
+
+  const prompt = `You are an expert AI video production director. A shot in production is failing to generate correctly with I2V tools.
+
+SHOT DATA:
+- Shot Number: ${shot.shot_number}
+- Visual DNA: ${shot.visual_dna}
+- Current T2I Prompt: ${shot.t2i_prompt}
+- Current I2V Prompt: ${shot.i2v_prompt}
+
+SUBJECT PROFILE:
+${mutationResult?.subjectProfile || 'Maintain subject consistency from original prompts.'}
+
+Your job:
+1. Diagnose WHY this shot is technically difficult for I2V generation (motion ambiguity, complex physics, internal transformation, multi-element synchronization, etc.)
+2. Propose ONE concrete alternative shot structure that achieves the same narrative intention but is realistically achievable with current AI video tools
+3. Generate new T2I and I2V prompts for this alternative
+
+Respond ONLY in this exact JSON format, no other text:
+{
+  "diagnosis": "한국어로 작성. 이 Shot이 I2V에서 실패하는 기술적 원인을 2-3문장으로 명확하게 설명.",
+  "alternative": "한국어로 작성. 동일한 서사 의도를 살리면서 AI 생성이 가능한 대안 Shot 구조를 2-4문장으로 설명. 컷 분리, 카메라 앵글 변경, T2I 스틸 처리 등 구체적인 방법 포함.",
+  "t2i_prompt": "Alternative T2I prompt in English. Cinematic, detailed, under 120 words.",
+  "i2v_prompt": "Alternative I2V prompt in English. Motion-focused, achievable with AI tools, under 100 words."
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text?.trim();
+    if (!text) throw new Error('No response');
+
+    // JSON 파싱 3단계 폴백
+    let parsed;
+    const cleaned = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    try { parsed = JSON.parse(cleaned); } catch {}
+    if (!parsed) { const m = cleaned.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+    if (!parsed) { const m = cleaned.match(/\[[\s\S]*\]/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+    if (!parsed) throw new Error('Parse failed');
+
+    // 결과 렌더링
+    document.getElementById(`stuck-diagnosis-text-${shotNum}`).textContent = parsed.diagnosis || '—';
+    document.getElementById(`stuck-alt-text-${shotNum}`).textContent = parsed.alternative || '—';
+    document.getElementById(`stuck-t2i-${shotNum}`).textContent = parsed.t2i_prompt || '—';
+    document.getElementById(`stuck-i2v-${shotNum}`).textContent = parsed.i2v_prompt || '—';
+
+    // 저장 (APPLY용)
+    const zone = document.getElementById(`stuck-zone-${shotNum}`);
+    zone.dataset.t2i = parsed.t2i_prompt || '';
+    zone.dataset.i2v = parsed.i2v_prompt || '';
+
+    diagnosisEl.style.display = 'block';
+    altEl.style.display = 'block';
+    promptsEl.style.display = 'flex';
+    actionsEl.style.display = 'flex';
+    showToast('ALTERNATIVE GENERATED ✓');
+
+  } catch(e) {
+    emptyEl.style.display = 'block';
+    emptyEl.innerHTML = `<div style="color:var(--red);font-size:10px;margin-bottom:12px;">FAILED: ${e.message}</div><button class="btn-stuck-apply" onclick="runStuck(${shotNum})">RETRY</button>`;
+    showToast('DIAGNOSE FAILED');
+  } finally {
+    indicator.classList.remove('active');
+  }
+}
+
+function applyStuck(shotNum) {
+  const zone = document.getElementById(`stuck-zone-${shotNum}`);
+  const newT2I = zone.dataset.t2i;
+  const newI2V = zone.dataset.i2v;
+  if (!newT2I && !newI2V) return;
+
+  // Shot 카드 프롬프트 교체
+  const t2iEl = document.getElementById(`t2i-${shotNum}`);
+  const i2vEl = document.getElementById(`i2v-${shotNum}`);
+  if (t2iEl && newT2I) t2iEl.textContent = newT2I;
+  if (i2vEl && newI2V) i2vEl.textContent = newI2V;
+
+  // mutationResult 업데이트
+  if (mutationResult) {
+    const shot = mutationResult.shots.find(s => s.shot_number == shotNum);
+    if (shot) {
+      if (newT2I) shot.t2i_prompt = newT2I;
+      if (newI2V) shot.i2v_prompt = newI2V;
+    }
+  }
+
+  // stuck zone 닫기
+  zone.classList.remove('open');
+  showToast(`SHOT ${String(shotNum).padStart(2,'0')} UPDATED ✓`);
 }
 </script>
 </body>
